@@ -1,3 +1,5 @@
+#define STB_IMAGE_IMPLEMENTATION
+
 #include <stdio.h>
 #include <string.h>
 #define _USE_MATH_DEFINES
@@ -15,6 +17,12 @@
 #include "Shader.h"
 #include "Window.h"
 #include "Camera.h"
+#include "Texture.h"
+#include "Light.h"
+
+//Texture objects
+Texture brickTexture;
+Texture dirtTexture;
 
 //Window Dimensions
 const GLint WIDTH = 800, HEIGHT = 600;
@@ -25,6 +33,8 @@ GLfloat deltaTime, lastTime = 0.0f;
 
 std::vector<Mesh*> meshList;
 std::vector<Shader*> shaderList;
+
+Light mainLight;
 
 Window mainWindow;
 
@@ -43,18 +53,19 @@ void createTriangle() {
     };
 
     GLfloat vertices[] = {
-        -1.0f, -1.0f, 0.0f,
-        0.0f, -1.0f, 1.0f,
-        1.0f, -1.0f, 0.0f,
-        0.0f, 1.0f, 0.0f
+    //    x      y     z          u     v
+        -1.0f, -1.0f, 0.0f,     0.0f, 0.0f,
+        0.0f, -1.0f, 1.0f,      0.5f, 0.0f,
+        1.0f, -1.0f, 0.0f,      1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,       0.5f, 1.0f
     };
     
     Mesh* obj1 = new Mesh();
-    obj1->createMesh(vertices, indices, 12, 12);
+    obj1->createMesh(vertices, indices, 20, 12);
     meshList.push_back(obj1);
 
     Mesh* obj2 = new Mesh();
-    obj2->createMesh(vertices, indices, 12, 12);
+    obj2->createMesh(vertices, indices, 20, 12);
     meshList.push_back(obj2);
 
 }
@@ -74,10 +85,17 @@ int main()
     createShader();
 
     Camera camera = Camera(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), -90.0f, 0.0f, 5.0f, 0.3f);
+    brickTexture = Texture((char*)"Textures/Tile.png");
+    brickTexture.loadTexture();
+    dirtTexture = Texture((char*)"Textures/Dirt.png");
+    dirtTexture.loadTexture();
+
+    mainLight = Light(1.0f, 1.0f, 1.0f, 0.7f);
 
     glm::mat4 projection = glm::perspective(45.0f, mainWindow.getBufferWidth() / mainWindow.getBufferHeight(), 0.1f, 100.0f);
 
     GLuint uniformProjection = 0, uniformModel = 0, uniformView = 0;
+    GLuint uniformAmbientColour = 0, uniformAmbientIntensity = 0;
     // Loop until windows closed
     while (!mainWindow.getShouldClose()) {
         //Updating delta time
@@ -100,18 +118,25 @@ int main()
         uniformProjection = shaderList[0]->getProjectionLocation();
         uniformView = shaderList[0]->getViewLocation();
 
+        //Getting Light uniforms
+        uniformAmbientColour = shaderList[0]->getAmbientColourLocation();
+        uniformAmbientIntensity = shaderList[0]->getAmbientIntensityLocation();
+        mainLight.useLight(uniformAmbientIntensity, uniformAmbientColour);
+
         glm::mat4 model(1.0f);
         model = glm::translate(model, glm::vec3(0.0f, 0.0f, -2.5f));
         model = glm::scale(model, glm::vec3(0.4f, 0.4f, 1.0f));
         glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
         glUniformMatrix4fv(uniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
         glUniformMatrix4fv(uniformView, 1, GL_FALSE, glm::value_ptr(camera.calculateViewMatrix()));
+        brickTexture.useTexture();
         meshList[0]->renderMesh();
 
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(0.0f, 1.0f, -2.5f));
         model = glm::scale(model, glm::vec3(0.4f, 0.4f, 1.0f));
         glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
+        dirtTexture.useTexture();
         meshList[1]->renderMesh();
 
         glUseProgram(0);
