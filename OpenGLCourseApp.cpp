@@ -13,12 +13,15 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "CommonValues.h"
+
 #include "Mesh.h"
 #include "Shader.h"
 #include "Window.h"
 #include "Camera.h"
 #include "Texture.h"
-#include "Light.h"
+#include "DirectionalLight.h"
+#include "PointLight.h"
 #include "Material.h"
 
 //Texture objects
@@ -35,7 +38,8 @@ GLfloat deltaTime, lastTime = 0.0f;
 std::vector<Mesh*> meshList;
 std::vector<Shader*> shaderList;
 
-Light mainLight;
+DirectionalLight mainLight;
+PointLight pointLights[MAX_POINT_LIGHTS];
 
 Material shinyMaterial;
 Material dullMaterial;
@@ -128,14 +132,24 @@ int main()
     shinyMaterial = Material(1.0f, 32);
     dullMaterial = Material(0.3f, 4);
 
-    mainLight = Light(1.0f, 1.0f, 1.0f, 0.7f, 
-        2.0f, -1.0f, -2.0f, 1.0f);
+    mainLight = DirectionalLight(1.0f, 1.0f, 1.0f, 
+        0.7f, 1.0f,
+        2.0f, -1.0f, -2.0f);
+
+    pointLights[0] = PointLight(0.0f, 1.0f, 0.0f, 
+                                0.1f, 1.0f,
+                                -4.0f, 0.0f, 0.0f,
+                                0.3f, 0.2f, 0.1f);
+
+    pointLights[1] = PointLight(1.0f, 0.0f, 0.0f,
+                                0.1f, 1.0f,
+                                5.0f, 1.0f, 3.0f,
+                                0.3f, 0.2f, 0.1f);
+    unsigned int pointLightCount = 2;
 
     glm::mat4 projection = glm::perspective(45.0f, mainWindow.getBufferWidth() / mainWindow.getBufferHeight(), 0.1f, 100.0f);
 
     GLuint uniformProjection = 0, uniformModel = 0, uniformView = 0, uniformEyePosition = 0;
-    GLuint uniformAmbientColour = 0, uniformAmbientIntensity = 0;
-    GLuint uniformDirection = 0, uniformDiffuseIntensity = 0;
     GLuint uniformSpecularIntensity = 0, uniformShine = 0;
     // Loop until windows closed
     while (!mainWindow.getShouldClose()) {
@@ -159,19 +173,13 @@ int main()
         uniformProjection = shaderList[0]->getProjectionLocation();
         uniformView = shaderList[0]->getViewLocation();
 
-        //Getting Light uniforms
-        uniformAmbientColour = shaderList[0]->getAmbientColourLocation();
-        uniformAmbientIntensity = shaderList[0]->getAmbientIntensityLocation();
-        uniformDiffuseIntensity = shaderList[0]->getDiffuseIntensityLocation();
-        uniformDirection = shaderList[0]->getDirectionLocation();
-
         //Specular light uniforms
         uniformEyePosition = shaderList[0]->getEyePositionLocation();
         uniformSpecularIntensity = shaderList[0]->getSpecularIntensityLocation();
         uniformShine = shaderList[0]->getShininessLocation();
-
-        mainLight.useLight(uniformAmbientIntensity, uniformAmbientColour, 
-            uniformDiffuseIntensity, uniformDirection);
+        
+        shaderList[0]->setDirectionalLight(&mainLight);
+        shaderList[0]->setPointLights(pointLights, pointLightCount);
 
         glUniformMatrix4fv(uniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
         glUniformMatrix4fv(uniformView, 1, GL_FALSE, glm::value_ptr(camera.calculateViewMatrix()));
